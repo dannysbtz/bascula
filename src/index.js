@@ -77,7 +77,7 @@ require('dotenv').config();
 
 //#region  Settings
 
-app.set('port',process.env.PORT||3334);
+app.set('port',process.env.PORT||3335);
 //#region Server is Listenning 
 server.listen(app.get('port'),()=>{
     console.log('Server on port ',app.get('port'));

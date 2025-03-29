@@ -6,12 +6,12 @@ module.exports = {
       name: "index",
       script: "./src/index.js", // Ruta a tu archivo principal
       env: {
-        PORT: process.env.PORT || 3000,
+        PORT: process.env.PORT || 3335,
         MONGODB_URI: process.env.MONGODB_URI,
         // Otras variables de entorno si es necesario
       },
       env_production: {
-        PORT: process.env.PORT || 3000,
+        PORT: process.env.PORT || 3335,
         MONGODB_URI: process.env.MONGODB_URI,
         // Otras variables para producción
       },
