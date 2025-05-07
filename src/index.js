@@ -6,43 +6,87 @@ const WebSocket = require('ws');
 const {SerialPort}  = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 
-const port = new SerialPort({
-  path: 'COM4',  
-  baudRate: 9600,
-  dataBits: 8,
-  stopBits: 1,
-  parity: 'none',
-  autoOpen: false, 
-});
+let com ='COM3'
+let port;
+let parser;
+let inter;
 
-const parser = port.pipe(new ReadlineParser({ delimiter: '\r' }));
-
-port.open((err) => {
-  if (err) {
-    console.error('Error abriendo el puerto:', err);
+function openPort(comName) {
+  if (port && port.isOpen) {
+    port.close((err) => {
+      if (err) {
+        console.error('Error cerrando el puerto:', err);
+      } else {
+        console.log('Puerto anterior cerrado');
+        clearInterval(inter);
+        inter = null;
+        startPort(comName); // volver a abrir con el nuevo
+      }
+    });
   } else {
-    console.log('Puerto abierto');
-    setInterval(() => {
-      port.write('P'); 
-      port.drain();
-    }, 1000);
+    startPort(comName); // abrir directamente si no hay puerto abierto
   }
-});
+}
 
-parser.on('data', (data) => {
-  // console.log(wss.clients)
-  console.log(  wss.clients.size);
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      console.log('Enviando mensaje:', data);
-      client.send(data.trim());
+function startPort(comName) {
+  port = new SerialPort({
+    path: comName,
+    baudRate: 9600,
+    dataBits: 8,
+    stopBits: 1,
+    parity: 'none',
+    autoOpen: false,
+  });
+
+  parser = port.pipe(new ReadlineParser({ delimiter: '\r' }));
+
+  port.open((err) => {
+    if (err) {
+      console.error('Error abriendo el puerto:', err);
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'error',
+            value: 'Báscula no detectada'
+          }));
+        }
+      });
+    } else {
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'conectada',
+            value: 'Báscula conectada'
+          }));
+        }
+      });
+      console.log('Puerto abierto:', comName);
+      inter = setInterval(() => {
+        port.write('P');
+        port.drain();
+      }, 1000);
     }
   });
-});
 
-port.on('error', (err) => {
-  console.error('Error en la comunicación del puerto:', err);
-});
+  parser.on('data', (data) => {
+    console.log('Datos recibidos:', data);
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({
+          type: 'peso',
+          value: parseFloat(data.trim())
+        }));
+      }
+    });
+  });
+
+  port.on('error', (err) => {
+    console.error('Error en el puerto:', err);
+  });
+}
+
+openPort(com);
+
 
 const app=express();
 const server = http.createServer(app);
@@ -59,8 +103,9 @@ wss.on('connection', (ws) => {
   console.log('Cliente WebSocket conectado');
 
   ws.on('message', (message) => {
-    console.log('Mensaje recibido:', message);
-    ws.send(`Echo: ${message}`); // Enviar respuesta al cliente
+    const texto = message.toString();
+    openPort(texto);
+    console.log('Mensaje recibido:', texto);
   });
 
   ws.on('close', () => {
