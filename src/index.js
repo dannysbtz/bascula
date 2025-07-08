@@ -115,7 +115,6 @@ wss.on('connection', (ws) => {
 
 
 app.use(morgan('dev'));
-require('./database');
 require('dotenv').config();
 
 //#endregion
